@@ -1,0 +1,9 @@
+{
+  "name": "naive",
+  "description": "A package using naive versioning",
+  "author": "A confused individual <iam@confused.com>",
+  "dependencies": {
+    "nodejs-websocket": "latest",
+    "mongoose": "latest"
+  }
+}
