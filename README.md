@@ -14,7 +14,11 @@ to view logs from server.resilience.me:
 $ MODULUS_TOKEN=8874f010-4d89-46ad-b631-a57f2e7f98b4 modulus project logs -p server
 ```
 
+to test server.js:
 
+```js
+node server.js
+```
 
 ### How to Connect to Resilience.me ###
 
@@ -32,13 +36,13 @@ The transaction data from client.resilience.me is sent over websocket.
 The `DATA_BLOB` contains three arrays.
 
 ```js
-ACCOUNT_ID = [{'account_id': ""}]
+ACCOUNT_DATA = [{'account_id': ""}]
 TAX_BLOB = [{'transaction_id': "", 'account': "", 'amount': "", 'currency': "", 'destination': "", 'taxRate':  'tax_amount': }]
 SENT_BLOB = [{'transaction_id': "",'destination': "",'currency': "",'amount': ""}]
 ```
 
 
-`ACCOUNT_ID` sends the accounts ripple adress, and possible extra data like email and arbitrary data.
+`ACCOUNT_DATA` sends the accounts ripple adress, and possible extra data like email and arbitrary data.
 
 `TAX_BLOB` sends all declared tax, this is the main blob.
 
