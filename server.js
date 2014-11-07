@@ -1,7 +1,5 @@
 //--- server.resilience.me --------------
 
-// I´ve improvised ALOT of solutions. Think of this as a SKETCH.
-
 //----- Open a websocket for http://client.resilience.me -------
 
 var ws = require("nodejs-websocket");
