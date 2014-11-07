@@ -46,16 +46,8 @@ var k = 0;
   
 //---- Define the MongoDB schemas and models:
 
-// USEFUL LINKS:
-// http://docs.mongodb.org/manual/data-modeling/
 
-// http://docs.mongodb.org/manual/reference/limits/#namespaces
-// http://docs.mongodb.org/manual/faq/developers/#are-there-any-restrictions-on-the-names-of-collections
-
-// http://mongoosejs.com/docs/api.html#query_Query-and
-
-    var COLLECTION = String;
-    COLLECTION = ACCOUNT_ID;
+    var COLLECTION = ACCOUNT_ID;
 
 var dividend_pathways_schema = new Schema({
     account: String
@@ -95,8 +87,6 @@ mongoose.connect('mongodb://unicorn23:asd123@proximus.modulusmongo.net:27017/gup
 //------ feed the data into MongoDB --------------------------------------
 
 // all the data in DATA_BLOB should be fed into MongoDB
-
-// the scripts below need to be beautifyed
 
 
 var temp = {
