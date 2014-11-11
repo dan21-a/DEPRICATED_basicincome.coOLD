@@ -42,6 +42,8 @@ db.once('open', function() {
 
 var i = 0;
 var k = 0;
+var PAYMENT_BLOB = [];
+
   
   
 //---- Define the MongoDB schemas and models:
@@ -56,14 +58,16 @@ var dividend_pathways_schema = new Schema({
   , total_pathway: String
 
 }, { collection: COLLECTION });
-
+  console.log(TAX_BLOB)
+var TEMP = "rLaKjMvLbrAJwnH4VpawQ6ot9epZqJmbfQ"
+if(TAX_BLOB.indexOf("account")>-1 ){TEMP = TAX_BLOB[i].account}
 
 var taxRate_upper_limit_schema = new Schema({ //define it here where [i] is defined
      ccurrency: String, 
      ttaxRate: String, 
      ttotal_amount: String
 
-}, { collection: TAX_BLOB[i].account });
+}, { collection: TEMP });
 
 
 var transaction_log_schema = new Schema({
@@ -76,7 +80,7 @@ var account_data = mongoose.model('account_data', dividend_pathways_schema, COLL
 
 var transaction_log = mongoose.model('transaction_log', transaction_log_schema, "transaction_log");
 
-var taxRate_upper_limit = mongoose.model('taxRate_upper_limit', taxRate_upper_limit_schema, TAX_BLOB[i].account);
+var taxRate_upper_limit = mongoose.model('taxRate_upper_limit', taxRate_upper_limit_schema, TEMP);
 
 
 mongoose.connect('mongodb://unicorn23:asd123@proximus.modulusmongo.net:27017/gup6umEm');
@@ -103,12 +107,13 @@ var doc_obj;
 var doc_obj3;
 
 
+if(TAX_BLOB.indexOf("transaction_id")>-1 ){
 
 if(TAX_BLOB[0].transaction_id !== undefined) {
 
     update_dividend_pathway()
 
-}
+}}
 
 function loop() {
             i++;
@@ -243,7 +248,14 @@ function TAX_BLOB_loop() {
     if(k<TAX_BLOB.length) {
         update_transaction_log_with_TAX_BLOB();
     }
-    else k = 0, update_transaction_log_with_SENT_BLOB();
+    else {
+        k = 0
+        if(SENT_BLOB[0] !== undefined) {
+
+        update_transaction_log_with_SENT_BLOB();
+        }
+        else pingback()
+    }
 
 }
 
@@ -361,11 +373,16 @@ function SENT_BLOB_loop() {
     function pingback() {
         
         var PING_BLOB = { TAX_BLOB_ping: TAX_BLOB[0].transaction_id,
-                          SENT_BLOB_ping: SENT_BLOB[0].transaction_id
+                          SENT_BLOB_ping: ""
                         };
-                        
+                 
+                 
+        if(SENT_BLOB[0] !== undefined) {
+
+        PING_BLOB.SENT_BLOB_ping = SENT_BLOB[0].transaction_id;
+        }                
                        
-        conn.sendText(JSON.stringify(PING_BLOB));
+        //conn.sendText(JSON.stringify(PING_BLOB));
                     
         
         total_amount();
@@ -384,7 +401,7 @@ function total_amount(){
 
     for (var f = 0; f < TAX_BLOB.length; f++) { 
         if(temp.indexOf(TAX_BLOB[f].currency) == -1){
-        IOUs.push({currency: TAX_BLOB[f].currency, total_amount: ""});
+        IOUs.push({currency: TAX_BLOB[f].currency, taxRate: TAX_BLOB[f].taxRate, total_amount: ""});
         temp+= TAX_BLOB[f].currency + " ";
         //console.log(IOUs);
         }
@@ -425,11 +442,19 @@ function swarm_redistribution(){
     var y = 0;//recursion()
    
     var temp = " ";
+    var taxRate_quota_temp = []
+    var taxRate_quota_sum = 0
+    
     
     dividend_lines();
+    var taxRate_switch = false
+    var taxRate_x;
+    var taxRate_ratio_x;
     
-    
-// ------- FIRST, dividend_lines() -----------------
+// ------- FIRST, dividend_lines() and taxRate-ratios -----------------
+// see http://www.resilience.me/theory.html
+
+
 
     function dividend_lines() {
         
@@ -448,6 +473,7 @@ function swarm_redistribution(){
 
         //console.log(doc);
         var w = 0; //doc[w]
+        var taxRate_0 = IOUs[q].taxRate
         var line = [];//[{account: doc[w].account}]
 
         loop(doc);
@@ -458,12 +484,29 @@ function swarm_redistribution(){
 function loop(doc) {
 
             var q = 0
+            var taxRate_y = doc[w].taxRate
+            if(taxRate_switch === false){
+             taxRate_x = taxRate_0
+             taxRate_ratio_x = 1
+            }
+            else taxRate_x = taxRate_0
+            if(taxRate_y > taxRate_x)taxRate_y = taxRate_x
+            var taxRate_ratio_y = Number(taxRate_y) / Number(taxRate_x)
+            console.log("taxRate_ratio_x:" +taxRate_ratio_x)
+            console.log("taxRate_ratio_y:"+taxRate_ratio_y)
+            var taxRate_quota = Number(taxRate_ratio_x) * Number(taxRate_ratio_y)
+            console.log("taxRate_quota:"+ taxRate_quota)
+
             
             if (temp.indexOf(doc[w].account) == -1){
             temp+= doc[w].account + " "
 
-            line.push({account: doc[w].account});
+            line.push({account: doc[w].account, currency: IOUs[0].currency, taxRate: doc[w].taxRate, taxRate_quota: taxRate_quota});
+            taxRate_quota_temp.push(taxRate_quota)
+            taxRate_quota_sum = Number(taxRate_quota_sum) + Number(taxRate_quota)
+
             q++
+
             }
             else console.log("CIRCULAR");
             
@@ -494,8 +537,12 @@ function loop(doc) {
 
     function recursion(){
             if(x<lines.length){
-                
+            console.log("recursion nr "+x)
         if(y<lines[x].length){
+            console.log("taxRate_quota:" +lines[x][y].taxRate_quota)
+            taxRate_ratio_x = Number(lines[x][y].taxRate_quota)
+            taxRate_x = lines[x][y].taxRate
+
             COLLECTION = lines[x][y].account;
             y++;
             dividend_lines();
@@ -503,16 +550,16 @@ function loop(doc) {
         }
                 
         else {
+
            x++;
            y = 0;
             console.log("recursion nr "+x)
-            
             
             dividend_lines()
         }
         
             }
-            else console.log(lines), console.log("END")
+            else console.log(lines), console.log("END"), outgoing_payments()
         
 
 }
@@ -520,17 +567,44 @@ function loop(doc) {
          
          
          
-// ------- SECOND, taxRate-ratios -----------------
-// see http://www.resilience.me/theory.html
+// ------- SECOND, outgoing payments -----------------
+// see http://www.resilience.me/theory.html 
+function outgoing_payments(){
+         console.log(IOUs[0].total_amount)
+         console.log(taxRate_quota_temp)
+         console.log(taxRate_quota_sum)
+         var total_amount_pie = Number(IOUs[0].total_amount)/taxRate_quota_sum//1.77
          
-         
+         // create outgoing payment
+         x = 0
+         y = 0
+         loop()
+         function loop(){
+            if (x<lines.length){     
+                if (y<lines[x].length){
+                var payment = { account: lines[x][y].account, currency: lines[x][y].currency,
+                amount: total_amount_pie * lines[x][y].taxRate_quota}
+                PAYMENT_BLOB.push(payment)
+                console.log("payment:" +JSON.stringify(payment))
+                y++
+                loop()
+                }
+                else x++
+                loop()
+            }else console.log(PAYMENT_BLOB), send_payment()
+         }
+}
         
 }//end swarm_redistribution()
 
 
 
 
-
+function send_payment(){
+    console.log("outgoing payments sent !")
+            conn.sendText(JSON.stringify(PAYMENT_BLOB));
+            
+}
 
 
 // and create a blob of unsigned outgoing payments
@@ -540,7 +614,6 @@ function loop(doc) {
 
 // example: conn.sendText(SWARM_PAYMENTS_BLOB)
 
-        //conn.sendText();
     });
     conn.on("close", function (code, reason) {
         console.log("Connection closed");
