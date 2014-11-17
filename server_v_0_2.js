@@ -1,5 +1,3 @@
-November 15 2014
-
 // ---------------------------- connect to ripple-lib -----------------------------
 
 /* Loading ripple-lib with Node.js */
@@ -111,9 +109,180 @@ var server = ws.createServer(function (conn) {
 
 // ---------------------------- swarm-redistribution ----------------------------------
 
-        tax_blob = mongoose.model('tax_blob', tax_blob_schema, COLLECTION);
 
-        tax_blob.find({type: "tax_blob"}, function(err,doc){console.log(doc)})
+
+        var PAYMENT_BLOB = []
+
+
+swarm_redistribution()
+
+
+
+function swarm_redistribution(){
+
+    var lines = [];//lines.push(line)
+    
+    var x = 0;//recursion()
+    var y = 0;//recursion()
+   
+    var temp = " ";
+    
+    var taxRate_quota_temp = []
+    var taxRate_quota_sum = 0
+    var taxRate_switch = false
+    var taxRate_x;
+    var taxRate_ratio_x;
+    
+// ------- FIRST, dividend_lines() and taxRate-ratios -----------------
+// see http://www.resilience.me/theory.html
+
+
+    
+    // get the currency
+    var q = 0
+    var currency
+    var taxRate
+    var total_amount
+    
+    function get_currency(){
+    tax_blob = mongoose.model('tax_blob', tax_blob_schema, COLLECTION);
+    tax_blob.find({type: "tax_blob"}).exec(function(err,doc){
+        if(q<doc.length){
+        total_amount = doc[q].total_amount
+        console.log(doc[q].currency)
+        // get the taxRate
+        wallet.findOne({type: "wallet", currency: doc[q].currency}).exec(function(err,doc){
+                console.log(doc)
+                currency = doc.currency;taxRate=doc.taxRate
+                
+                dividend_lines()
+            })
+        }
+    });
+    }
+    get_currency()
+
+    function dividend_lines() {
+    dividend_pathway = mongoose.model('dividend_pathway', dividend_pathways_schema, COLLECTION);//to insert new COLLECTION
+    console.log("scanning collection: "+ COLLECTION);
+    dividend_pathway.find({type: "dividend_pathway", currency: currency} ).exec(function(err, doc) {
+    var pathway = doc
+    if(pathway.length > 0){var w = 0;var line = [];
+        loop(pathway, w, line);
+    }
+    else console.log("collection is empty"), recursion()
+    });
+    }
+    
+    function loop(pathway, w, line) {
+    var q = 0
+    // calculate taxRatio
+    var taxRate_y = pathway[w].taxRate
+    if(taxRate_switch === false){
+     taxRate_x = taxRate
+     taxRate_ratio_x = 1
+    }
+    else taxRate_x = taxRate
+    if(taxRate_y > taxRate_x)taxRate_y = taxRate_x
+    var taxRate_ratio_y = Number(taxRate_y) / Number(taxRate_x)
+    var taxRate_quota = Number(taxRate_ratio_x) * Number(taxRate_ratio_y)
+    console.log(temp.indexOf(pathway[w].account))
+    
+    // push lines
+    if (temp.indexOf(pathway[w].account) === -1){
+    temp+= pathway[w].account + " "
+    line.push({account: pathway[w].account, currency: currency, taxRate: taxRate, taxRate_quota: taxRate_quota});
+    taxRate_quota_temp.push(taxRate_quota)
+    taxRate_quota_sum = Number(taxRate_quota_sum) + Number(taxRate_quota)
+    q++
+    }
+    else console.log("CIRCULAR");
+    
+    w++;
+    
+    if (w<pathway.length){loop(pathway, w, line)}
+    else {
+        if (q>0){
+            console.log(line);//lists all dividend pathways in IOUs[0] for ACCOUNT_ID
+            lines.push(line)
+        };
+        
+        recursion()
+    }
+    }
+
+
+
+      
+// STEP 2: recursion (add all dividend pathways for lines[x][i].account)        
+
+
+    function recursion(){
+            if(x<lines.length){
+            console.log("recursion nr "+x)
+        if(y<lines[x].length){
+            console.log("taxRate_quota:" +lines[x][y].taxRate_quota)
+            taxRate_ratio_x = Number(lines[x][y].taxRate_quota)
+            taxRate_x = lines[x][y].taxRate
+            COLLECTION = lines[x][y].account;
+            y++;
+            dividend_lines();
+        }
+                
+        else {
+           x++;
+           y = 0;
+            console.log("recursion nr "+x)
+            dividend_lines()
+        }
+        
+            }
+            else console.log(lines), console.log("END"), outgoing_payments()
+        }
+         
+         
+         
+             
+    // ------- SECOND, outgoing payments -----------------
+    // see http://www.resilience.me/theory.html 
+    function outgoing_payments(){
+         var total_amount_pie = Number(total_amount)/taxRate_quota_sum
+         
+         // create outgoing payment
+         x = 0
+         y = 0
+         loop()
+         function loop(){
+            if (x<lines.length){     
+                if (y<lines[x].length){
+                var payment = { account: lines[x][y].account, currency: lines[x][y].currency,
+                amount: total_amount_pie * lines[x][y].taxRate_quota}
+                PAYMENT_BLOB.push(payment)
+                console.log("payment:" +JSON.stringify(payment))
+                y++
+                loop()
+                }
+                else x++
+                loop()
+            }else console.log(PAYMENT_BLOB), send_payment()
+         }
+}
+   
+   function send_payment(){
+    console.log("outgoing payments sent !")
+            conn.sendText(JSON.stringify(PAYMENT_BLOB));
+            q++
+            get_currency()
+            
+}
+
+        
+}//end swarm_redistribution()
+
+
+
+
+
 
 
 
