@@ -1,7 +1,8 @@
 // ---------------------------- connect to ripple-lib -----------------------------
 
 /* Loading ripple-lib with Node.js */
-var Remote = require('ripple-lib').Remote;
+var ripple = require('ripple-lib')
+var Remote = ripple.Remote;
 
 
 var remote = new Remote({
@@ -78,7 +79,6 @@ mongoose.connect('mongodb://AwSZome:jn0903@ds059907.mongolab.com:59907/awesome_b
 mongoose.connection.once('open', function(){ get_collections()})
 
 
-
 // ---------------------------- connect to basicincome.co -----------------------------
 
 
@@ -91,7 +91,7 @@ var server = ws.createServer(function (conn) {
     var BLOB
     var ACCOUNT_ID
     var WALLET
-    
+    var SECRET
     var i = 0   
 
 
@@ -103,12 +103,12 @@ var server = ws.createServer(function (conn) {
         BLOB = JSON.parse(str)
         ACCOUNT_ID = BLOB[0].account_id
         WALLET = BLOB[1]
-
+        SECRET = BLOB[2].secret
         COLLECTION = ACCOUNT_ID
         wallet = mongoose.model('wallet', wallet_schema, COLLECTION);//reloads COLLECTION
 
 // ---------------------------- swarm-redistribution ----------------------------------
-
+               
 
 
         var PAYMENT_BLOB = []
@@ -255,8 +255,19 @@ function swarm_redistribution(){
          function loop(){
             if (x<lines.length){     
                 if (y<lines[x].length){
-                var payment = { account: lines[x][y].account, currency: lines[x][y].currency,
-                amount: total_amount_pie * lines[x][y].taxRate_quota}
+                
+                var amount = total_amount_pie * lines[x][y].taxRate_quota
+                amount = Number(amount)
+                var currency = lines[x][y].currency
+                var account = lines[x][y].account
+                var payment = { account: account, currency: currency,
+                amount: amount}
+                var something = { value : 22, currency : currency, issuer : account}
+                var Amount = ""+amount+" "+currency
+                var send_amount = ripple.Amount.from_human('1USD')
+
+                send_payment(account, amount, currency)
+                
                 PAYMENT_BLOB.push(payment)
                 console.log("payment:" +JSON.stringify(payment))
                 y++
@@ -264,11 +275,37 @@ function swarm_redistribution(){
                 }
                 else x++
                 loop()
-            }else console.log(PAYMENT_BLOB), send_payment()
+            }else;
          }
 }
    
-   function send_payment(){
+   
+   function send_payment(destination, amount, currency){
+
+remote.setSecret(ACCOUNT_ID, SECRET);
+
+var transaction = remote.createTransaction('Payment', {
+  account: ACCOUNT_ID,
+  destination: destination,
+  amount: {currency: currency, value: String(amount), issuer: ACCOUNT_ID}
+});
+
+transaction.on('resubmitted', function() {
+  // initial submission failed, resubmitting
+});
+
+transaction.submit(function(err, res) {
+     if (err){
+         console.log('Error payment: ' + JSON.stringify(err));}
+    console.log(res)
+    console.log("hejhej")
+ // submission has finalized with either an error or success.
+ // the transaction will not be retried after this point
+});
+
+}
+   
+   function send_client(){
     console.log("outgoing payments sent !")
             conn.sendText(JSON.stringify(PAYMENT_BLOB));
             q++
